@@ -1,0 +1,92 @@
+- hosts: terraform_wordpress
+  vars:
+    - ansible_become: true
+
+  tasks:
+    - name: "Installing HTTPD,packages required for wordpress"
+      package:
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - httpd
+        - php 
+        - php-mysqlnd
+        - php-pdo
+        - php-json
+        - php-gd
+        - php-ldap
+        - php-odbc
+        - php-pear
+        - php-xml
+        - php-xmlrpc
+        - php-mbstring
+        - php-soap
+        - curl
+        - curl-devel 
+        - git
+        
+
+    - name: "Adding wordpress code to /var/www/html"    
+      git:
+        repo: "https://github.com/WordPress/WordPress.git"
+        dest: "/var/www/html/"
+        version: 5.1-branch
+
+    - name: "Starting web server" 
+      service:
+        name: 'httpd'
+        state: started 
+        enabled: yes
+
+    - name: "downlading repo for mysql-server"
+      get_url:
+        url: "https://dev.mysql.com/get/mysql80-community-release-el7-3.noarch.rpm"
+        dest: /
+
+    - name: "Adding repository for mysql server"
+      package: 
+        name: "/mysql80-community-release-el7-3.noarch.rpm"
+        state: present
+    
+    - name: "Installing mysql-server"
+      package:
+        name: "mysql-server"
+        state: present
+      notify:
+        - utf8_setting
+        - restart_mysqld
+        - selinux-stop
+
+    - name: "Starting mysqld" 
+      service:
+        name: 'mysqld'
+        state: started 
+        enabled: yes
+
+    - name: "Copying wp-config.php file to /var/www/html/"
+      copy:
+        src: "wp-config.php"
+        dest: "/var/www/html/"
+      notify: 
+        - restart_server
+
+  handlers:
+    - name: restart_server
+      service:
+        name: "httpd"
+        state: restarted   
+   
+    - name: utf8_setting
+      copy:
+        src: "my.cnf"
+        dest: "/etc/my.cnf"
+
+    - name: restart_mysqld
+      service:
+        name: "mysqld"
+        state: restarted
+
+    - name: selinux-stop
+      command: "setenforce 0"
+        
+
